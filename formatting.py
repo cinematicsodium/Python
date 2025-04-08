@@ -1,6 +1,4 @@
 import unicodedata
-from dataclasses import dataclass
-from typing import Callable, Optional
 
 from rich.traceback import install
 
@@ -75,18 +73,14 @@ class NameFormatter:
         """
         Formats the full name as "Last, First".
         """
-        if (
-            " " not in self.full_name
-            or len(filtered_parts := self.name_parts()) not in (2, 3, 4)
-        ):
+        if " " not in self.full_name or len(
+            filtered_parts := self.name_parts()
+        ) not in (2, 3, 4):
             return self.full_name
 
         if len(filtered_parts) == 4:
             first, last1, last2, last3 = filtered_parts
-            if (
-                last1.lower() in NAME_PARTICLES 
-                and last2.lower() in NAME_PARTICLES
-            ):
+            if last1.lower() in NAME_PARTICLES and last2.lower() in NAME_PARTICLES:
                 last = f"{last1} {last2} {last3}"
             else:
                 return self.full_name
@@ -137,7 +131,7 @@ class Formatter:
         return self.text.lower().replace(" ", "_")
 
     def value(self) -> str:
-        if self.text == "":
+        if self.text.strip() == "":
             return None
         return self.text
 
@@ -149,7 +143,7 @@ class Formatter:
 
     def reason(self) -> str:
         """
-        Formats the text as a reason, replacing double quotes with single quotes.
+        Formats the 'justification' content to allow line breaks within a single Excel cell.
         """
         self.text = self.text.replace('"', "'")
         return f'"{self.text}"'
@@ -177,3 +171,19 @@ class Formatter:
                 f"parsed text: {numeric_string}"
             )
 
+    def org_div(self) -> str:
+        """
+        Normalizes the text, removes hyphens, and applies a consistent lowercase.
+        """
+        return self.text.replace("-", "").strip().lower()
+
+    def pay_plan(self) -> str:
+        chars = list(self.text)
+        for idx, char in enumerate(chars):
+            chars[idx] = char.upper() if char.isalnum() else "-"
+        return "".join(chars)
+
+
+if __name__ == "__main__":
+    pay = "NN/04/564/sdf4"
+    print(Formatter(pay).pay_plan())
