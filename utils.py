@@ -1,8 +1,9 @@
-from datetime import datetime
+from typing import Optional
 
 import yaml
 
-from constants import active_fiscal_year
+from constants import active_fiscal_year, division_map, mb_map
+from formatting import Formatter
 
 _log_id_yaml = "log_id.yaml"
 
@@ -37,3 +38,38 @@ def get_log_id(category: str) -> int:
         file.truncate()
 
     return log_id
+
+def find_organization(input_org: str, get_div: bool = False) -> Optional[str]:
+    """
+    Finds the organization matching the input string.
+    """
+    formatted_input = Formatter(input_org).org_div()
+
+    for org, div_list in division_map.items():
+        formatted_org = Formatter(org).org_div()
+    
+        if formatted_org in formatted_input and not get_div:
+            return org
+
+        for div in div_list:
+            formatted_div = Formatter(div).org_div()
+    
+            if formatted_div in formatted_input:
+                return div if get_div else org
+    return None
+
+def find_mgmt_division(input_org: str) -> str:
+    formatted_input = Formatter(input_org).org_div()
+
+    for org, div_list in mb_map.items():
+        formatted_org = Formatter(org).org_div()
+    
+        if formatted_org in formatted_input:
+            return org
+
+        for div in div_list:
+            formatted_div = Formatter(div).org_div()
+    
+            if formatted_div in formatted_input:
+                return org
+    return None
