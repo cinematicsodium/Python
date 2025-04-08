@@ -1,6 +1,5 @@
 from datetime import datetime
 
-
 active_fiscal_year = 2025
 
 today = datetime.today()
@@ -17,19 +16,28 @@ if current_fiscal_year != active_fiscal_year:
     )
 
 
-class Criteria:
+class Assessment:
     """
     Award evaluation criteria.
     """
 
-    value_options: tuple[str, ...] = ("a", "b", "c")
-    extent_options: tuple[str, ...] = ("limited", "general", "exceptional")
+    value_options: tuple[str, ...] = ("moderate", "high", "exceptional")
+    extent_options: tuple[str, ...] = ("limited", "general", "extended")
 
 
-class LimitMatrix:
-    time_off: tuple[tuple[int, ...], ...] = ((1, 2, 3), (4, 5, 6), (7, 8, 9))
+class LimitsMatrix:
     monetary: tuple[tuple[int, ...], ...] = (
-        (10, 20, 30),
-        (40, 50, 60),
-        (70, 80, 90),
+        (500, 1000, 3000),  # moderate
+        (1000, 3000, 6000),  # high
+        (3000, 6000, 10000),  # exceptional
+        # limited   extended    general
     )
+    time_off: tuple[tuple[int, ...], ...] = (
+        (9, 18, 27),  # moderate
+        (18, 27, 36),  # high
+        (27, 36, 40),  # exceptional
+        # limited   extended    general
+    )
+
+
+division_map: dict[str, list[str]] = {}
