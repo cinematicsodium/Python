@@ -37,5 +37,3 @@ def get_log_id(category: str) -> int:
         file.truncate()
 
     return log_id
-
-print(get_log_id("IND"))
