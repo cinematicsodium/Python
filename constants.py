@@ -22,8 +22,9 @@ if current_fiscal_year != active_fiscal_year:
         "Please update the fiscal year in constants.py."
     )
 
+monetary_matrix: tuple[tuple[int, int, int], ...]
+time_off_matrix: tuple[tuple[int, int, int], ...]
+
 division_map: dict[str, list[str]]
-
 mb_map: dict[str, list[str]]
-
 consultant_map: dict[str,str]
