@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import fitz
-
 from ind_processor import IndProcessor
 from utils import log
 
