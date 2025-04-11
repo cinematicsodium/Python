@@ -1,4 +1,11 @@
 from datetime import datetime
+from pathlib import Path
+from typing import Optional
+
+json_output_path: Path
+tsv_output_path: Path
+serial_numbers_path: Path
+logger_path: Path
 
 active_fiscal_year = 2025
 
@@ -15,29 +22,8 @@ if current_fiscal_year != active_fiscal_year:
         "Please update the fiscal year in constants.py."
     )
 
+division_map: dict[str, list[str]]
 
-class Assessment:
-    """
-    Award evaluation criteria.
-    """
+mb_map: dict[str, list[str]]
 
-    value_options: tuple[str, ...] = ("moderate", "high", "exceptional")
-    extent_options: tuple[str, ...] = ("limited", "general", "extended")
-
-
-class LimitsMatrix:
-    monetary: tuple[tuple[int, ...], ...] = (
-        (500, 1000, 3000),  # moderate
-        (1000, 3000, 6000),  # high
-        (3000, 6000, 10000),  # exceptional
-        # limited   extended    general
-    )
-    time_off: tuple[tuple[int, ...], ...] = (
-        (9, 18, 27),  # moderate
-        (18, 27, 36),  # high
-        (27, 36, 40),  # exceptional
-        # limited   extended    general
-    )
-
-
-division_map: dict[str, list[str]] = {}
+consultant_map: dict[str,str]
