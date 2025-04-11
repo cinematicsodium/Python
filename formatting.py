@@ -1,9 +1,5 @@
 import unicodedata
 
-from rich.traceback import install
-
-install(show_locals=True)
-
 TITLES: list[str] = [
     "dr.",
     "mr.",
@@ -58,13 +54,16 @@ class NameFormatter:
         filtered_parts = [
             part
             for part in parts
-            if part.lower() in NAME_PARTICLES
-            or not (
-                part.lower() in TITLES
-                or (part.startswith('"') and part.endswith('"'))
-                or (part.startswith("(") and part.endswith(")"))
-                or ("." in part and (len(part.replace(".", "")) <= 3))
-                or len(part) == 1
+            if any(
+                [
+                    part.lower() in NAME_PARTICLES,
+                    part.lower() not in TITLES,
+                    not part.startswith('"') and not part.endswith('"'),
+                    not part.startswith("(") and not part.endswith(")"),
+                    not ("." in part and (len(part.replace(".", "")) in range(4))),
+                    not len(part) == 2 and part.endswith("."),
+                    not len(part) == 1,
+                ]
             )
         ]
         return filtered_parts if filtered_parts else None
@@ -73,31 +72,51 @@ class NameFormatter:
         """
         Formats the full name as "Last, First".
         """
-        if " " not in self.full_name or len(
-            filtered_parts := self.name_parts()
-        ) not in (2, 3, 4):
+
+        if any(
+            [
+                " " not in self.full_name,
+                (filtered_parts := self.name_parts()) is None,
+                len(filtered_parts) not in range(2, 6)
+            ]
+        ):
             return self.full_name
 
-        if len(filtered_parts) == 4:
-            first, last1, last2, last3 = filtered_parts
-            if last1.lower() in NAME_PARTICLES and last2.lower() in NAME_PARTICLES:
-                last = f"{last1} {last2} {last3}"
+        elif len(filtered_parts) == 5:
+            first_name, last_name, preposition = filtered_parts[:3]
+            if preposition != "for":
+                return self.full_name
+
+        elif len(filtered_parts) == 4:
+            first_name, preposition, article, noun = filtered_parts
+            if preposition.lower() in NAME_PARTICLES and article.lower() in NAME_PARTICLES:
+                last_name = f"{preposition} {article} {noun}"
             else:
                 return self.full_name
 
         elif len(filtered_parts) == 3:
-            first, last1, last2 = filtered_parts
-            if last1.lower() in NAME_PARTICLES:
-                last = f"{last1} {last2}"
+            first_name, preposition, article = filtered_parts
+            if preposition.lower() in NAME_PARTICLES:
+                last_name = f"{preposition} {article}"
             else:
                 return self.full_name
 
-        elif "," in filtered_parts[0]:
-            last, first = filtered_parts[0].replace(",", ""), filtered_parts[1]
-        else:
-            first, last = filtered_parts
+        elif len(filtered_parts) == 2:
+            if "," in filtered_parts[0]:
+                last_name, first_name = filtered_parts[0], filtered_parts[1]
+            else:
+                first_name, last_name = filtered_parts
 
-        return f"{last}, {first}".title()
+        last_name = last_name if last_name.endswith(",") else f"{last_name},"
+
+        full_name: str = f"{last_name} {first_name}"
+
+        upper_count: int = sum(
+            1 for char in full_name if str(char).isupper()
+        )
+
+        full_name = full_name if 2 <= upper_count <= 5 else full_name.title()
+        return full_name
 
 
 class Formatter:
@@ -117,11 +136,10 @@ class Formatter:
             .replace("\t", " ")
             .strip()
         )
-        if text != "":
-            if "\n" in text:
-                text = "\n".join(f"> {line}" for line in text.split("\n") if line)
-            if " " in text:
-                text = " ".join(word for word in text.split(" ") if word)
+        if "\n" in text:
+            text = "\n".join(f"> {line}" for line in text.split("\n") if line)
+        if " " in text:
+            text = " ".join(word for word in text.split(" ") if word)
         return text
 
     def __str__(self):
@@ -141,7 +159,7 @@ class Formatter:
         """
         return NameFormatter(self.text).format_last_first()
 
-    def reason(self) -> str:
+    def justification(self) -> str:
         """
         Formats the 'justification' content to allow line breaks within a single Excel cell.
         """
@@ -162,9 +180,7 @@ class Formatter:
         try:
             return float(numeric_string)
         except ValueError:
-            source_text = (
-                self.text if len(self.text) <= 100 else f"{self.text[:100]}..."
-            )
+            source_text = self.text[:100]
             raise ValueError(
                 "Cannot convert text to number\n"
                 f"original text: {source_text}\n"
@@ -181,6 +197,8 @@ class Formatter:
         chars = list(self.text)
         for idx, char in enumerate(chars):
             chars[idx] = char.upper() if char.isalnum() else "-"
+        if chars[1].isalpha() and chars[2].isnumeric():
+            chars.insert(2, "-")
         return "".join(chars)
 
 
