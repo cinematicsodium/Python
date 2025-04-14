@@ -54,15 +54,14 @@ class NameFormatter:
         filtered_parts = [
             part
             for part in parts
-            if any(
+            if not any(
                 [
                     part.lower() in NAME_PARTICLES,
-                    part.lower() not in TITLES,
-                    not part.startswith('"') and not part.endswith('"'),
-                    not part.startswith("(") and not part.endswith(")"),
-                    not ("." in part and (len(part.replace(".", "")) in range(4))),
-                    not len(part) == 2 and part.endswith("."),
-                    not len(part) == 1,
+                    part.lower() in TITLES,
+                    (part.startswith('"') and part.endswith('"')),
+                    (part.startswith("(") and part.endswith(")")),
+                    ("." in part and len(part.replace(".", "")) in (1, 3)),
+                    len(part) == 1,
                 ]
             )
         ]
@@ -77,7 +76,7 @@ class NameFormatter:
             [
                 " " not in self.full_name,
                 (filtered_parts := self.name_parts()) is None,
-                len(filtered_parts) not in range(2, 6)
+                len(filtered_parts) not in range(2, 6),
             ]
         ):
             return self.full_name
@@ -89,7 +88,10 @@ class NameFormatter:
 
         elif len(filtered_parts) == 4:
             first_name, preposition, article, noun = filtered_parts
-            if preposition.lower() in NAME_PARTICLES and article.lower() in NAME_PARTICLES:
+            if (
+                preposition.lower() in NAME_PARTICLES
+                and article.lower() in NAME_PARTICLES
+            ):
                 last_name = f"{preposition} {article} {noun}"
             else:
                 return self.full_name
@@ -111,9 +113,7 @@ class NameFormatter:
 
         full_name: str = f"{last_name} {first_name}"
 
-        upper_count: int = sum(
-            1 for char in full_name if str(char).isupper()
-        )
+        upper_count: int = sum(1 for char in full_name if str(char).isupper())
 
         full_name = full_name if 2 <= upper_count <= 5 else full_name.title()
         return full_name
@@ -203,5 +203,5 @@ class Formatter:
 
 
 if __name__ == "__main__":
-    pay = "NN/04/564/sdf4"
-    print(Formatter(pay).pay_plan())
+    name = "John Q. Public, Ph.D."
+    print(Formatter(name).name())
