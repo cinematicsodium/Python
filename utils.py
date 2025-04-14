@@ -1,24 +1,18 @@
-import re
-from datetime import datetime
 from typing import Optional
 
+import openpyxl
 import yaml
-from constants import (active_fiscal_year, division_map, logger_path, mb_map,
-                       serial_numbers_path)
+from constants import (
+    Tracker,
+    active_fiscal_year,
+    division_map,
+    mb_map,
+    serial_numbers_path,
+)
 from formatting import Formatter
 from rich.console import Console
 
 console = Console()
-
-
-def log(text: str) -> None:
-    now = datetime.now().replace(microsecond=0)
-    string: str = f"\n{now} _ {text}" if text.endswith(".pdf") else f"\n{text}\n"
-    console.print(string)
-    pattern: str = r"\[[^\]]*\]"
-    string = re.sub(pattern, "", string)
-    with open(logger_path, "a") as file:
-        file.write(string)
 
 
 class LogID:
@@ -77,6 +71,8 @@ def find_organization(input_org: str, get_div: bool = False) -> Optional[str]:
     Finds the organization matching the input string.
     Returns `None` if match not found.
     """
+    if not input_org:
+        return
     formatted_input = Formatter(input_org).org_div()
 
     org_div_match: Optional[str] = None
@@ -98,6 +94,9 @@ def find_organization(input_org: str, get_div: bool = False) -> Optional[str]:
 
 
 def find_mgmt_division(input_org: str) -> str:
+    if not input_org:
+        return
+
     formatted_input = Formatter(input_org).org_div()
 
     for org, div_list in mb_map.items():
@@ -112,3 +111,35 @@ def find_mgmt_division(input_org: str) -> str:
             if formatted_div in formatted_input:
                 return org
     return None
+
+
+def _get_serial_numbers_from_tracker() -> Optional[tuple[int, int]]:
+    try:
+        wb = openpyxl.load_workbook(Tracker.file_path, data_only=True)
+        sheet = wb[Tracker.sheet_name]
+        ind_val: int = int(sheet[Tracker.ind_coord].value[-3:])
+        grp_val: int = int(sheet[Tracker.grp_coord].value[-3:])
+        return ind_val, grp_val
+    except:
+        return None
+
+
+def _update_serial_numbers() -> None:
+    if (tracker_serial_numbers := _get_serial_numbers_from_tracker()) is None:
+        return
+    ind_val, grp_val = tracker_serial_numbers
+    try:
+        with open(serial_numbers_path, "r", encoding="utf-8") as file:
+            data = yaml.safe_load(file)
+        data["IND"] = ind_val if ind_val > data["IND"] else data["IND"]
+        data["GRP"] = grp_val
+        with open(serial_numbers_path, "w", encoding="utf-8") as file:
+            yaml.safe_dump(data, file, indent=4, sort_keys=False, encoding="utf-8")
+    except Exception as e:
+        from time import sleep
+
+        print(f"Unable to update serial_numbers.yaml. {e}")
+        sleep(3)
+
+
+_update_serial_numbers()
