@@ -132,12 +132,12 @@ class Formatter:
         """
         text = (
             unicodedata.normalize("NFKD", text)
-            .replace("\r", " ")
-            .replace("\t", " ")
+            .replace("\r", "\n")
+            .replace("\t", "    ")
             .strip()
         )
         if "\n" in text:
-            text = "\n".join(f"> {line}" for line in text.split("\n") if line)
+            text = "\n".join(f">_ {line}" for line in text.split("\n") if line)
         if " " in text:
             text = " ".join(word for word in text.split(" ") if word)
         return text
@@ -200,8 +200,3 @@ class Formatter:
         if chars[1].isalpha() and chars[2].isnumeric():
             chars.insert(2, "-")
         return "".join(chars)
-
-
-if __name__ == "__main__":
-    name = "John Q. Public, Ph.D."
-    print(Formatter(name).name())
