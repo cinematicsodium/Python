@@ -9,14 +9,15 @@ from typing import Optional
 
 import fitz
 import yaml
-from constants import (archive_path, consultant_map, json_output_path,
-                       tsv_output_path)
+from constants import archive_path, consultant_map, json_output_path, tsv_output_path
 from evaluator import AwardEvaluator
 from formatting import Formatter
+from modules import Logger
 from rich.console import Console
-from utils import LogID, find_mgmt_division, find_organization, logger
+from utils import LogID, find_mgmt_division, find_organization
 
 console = Console()
+logger = Logger()
 
 
 @dataclass
@@ -90,7 +91,7 @@ class IndProcessor:
             if not pdf_data:
                 raise ValueError("No data extracted from the PDF.")
 
-            console.print("[spring_green3]> Data extracted from PDF[/spring_green3]")
+            logger.info("> Data extracted from PDF")
 
             return pdf_data
 
@@ -135,7 +136,7 @@ class IndProcessor:
             ]
             self.extent = extent_options[0] if len(extent_options) == 1 else self.extent
 
-            console.print("[spring_green3]> Populated attributes[/spring_green3]")
+            logger.info("> Populated attributes")
 
     def initial_validation(self) -> list[str]:
         """
@@ -161,11 +162,10 @@ class IndProcessor:
             if incomplete_fields:
                 status.stop()
                 incomplete_fields = yaml.safe_dump(incomplete_fields, indent=4)
-                incomplete_msg: str = f"Missing Fields:\n{incomplete_fields}"
-                console.print(f"[bright_red]{incomplete_msg}[/bright_red]")
+                incomplete_msg: str = f"Missing Fields:\n{incomplete_fields}".strip()
+                logger.warning(incomplete_fields)
 
             options = {1: "Continue", 9: "Skip"}
-            selection: int
             while True:
                 try:
                     console.print(
@@ -175,13 +175,12 @@ class IndProcessor:
                         "9: Skip this award."
                         "[/orange1]"
                     )
-                    selection = int(input("> ").strip())
+                    selection: int = int(input("> ").strip())
                     if selection not in options:
                         raise ValueError("Selection must be 1 or 9.")
-                    if selection in options:
-                        break
+                    break
                 except Exception as e:
-                    console.print(f"[bright_red]Invalid selection. {e}[/bright_red]")
+                    console.print(f"[orange1]Invalid selection. {e}[/orange1]")
             if selection == 9:
                 raise ValueError(f"Unable to proceed with processing. {incomplete_msg}")
 
@@ -190,9 +189,7 @@ class IndProcessor:
                     f"'ES' pay plans not allowed: {self.employee_pay_plan}"
                 )
 
-            console.print(
-                "[spring_green3]> All required fields are populated[/spring_green3]"
-            )
+            logger.info("> All required fields are populated")
 
     def parse_org_divs(self):
         """
@@ -241,9 +238,7 @@ class IndProcessor:
 
             self.consultant: str = consultant_map[self.funding_org]
 
-            console.print(
-                f"[spring_green3]> Funding org set to '{self.funding_org}'[/spring_green3]"
-            )
+            logger.info(f"> Funding org set to '{self.funding_org}'")
 
             if "mb" in self.funding_org.lower():
                 try:
@@ -259,9 +254,7 @@ class IndProcessor:
                         else None
                     )
                     if self.mb_division is not None:
-                        console.print(
-                            f"[spring_green3]> MB division set to '{self.mb_division}'[/spring_green3]"
-                        )
+                        logger.info(f"> MB division set to '{self.mb_division}'")
                 except:
                     pass
 
@@ -305,9 +298,7 @@ class IndProcessor:
             if isinstance(self.employee_pay_plan, str):
                 self.employee_pay_plan = Formatter(self.employee_pay_plan).pay_plan()
 
-            console.print(
-                "[spring_green3]> All fields have been formatted[/spring_green3]"
-            )
+            logger.info("> All fields have been formatted")
 
     def categorize_amounts(self):
         """
@@ -339,9 +330,7 @@ class IndProcessor:
             self.monetary_amount = self.monetary_amount if self.monetary_amount else 0
             self.time_off_amount = self.time_off_amount if self.time_off_amount else 0
 
-            console.print(
-                "[spring_green3]> Award type and amount have been determined[/spring_green3]"
-            )
+            logger.info("> Award type and amount have been determined")
 
     def validate_amounts(self):
         """
@@ -382,14 +371,18 @@ class IndProcessor:
                     f"Time-Off: '{self.time_off_amount}'"
                 )
 
-            console.print(
-                "[spring_green3]> Award amounts meet the required criteria for further processing.[/spring_green3]"
+            logger.info(
+                "> Award amounts meet the required criteria for further processing."
             )
 
-            eval_results = AwardEvaluator(
+            evaluator = AwardEvaluator(
                 self.value, self.extent, self.monetary_amount, self.time_off_amount
-            ).evaluate()
-            console.print(eval_results)
+            )
+            try:
+                eval_results = evaluator.evaluate()
+                logger.info(eval_results)
+            except SyntaxError as se:
+                logger.warning(se)
 
     def save_json(self) -> None:
         """
@@ -432,9 +425,7 @@ class IndProcessor:
             with open(json_output_path, "w", encoding="utf-8") as file:
                 json.dump(json_dict_list, file, indent=4, sort_keys=False)
 
-            console.print(
-                f"[spring_green3]> '{json_output_path.name}' updated with new data[/spring_green3]"
-            )
+            logger.info(f"> '{json_output_path.name}' updated with new data")
 
     def save_tsv(self) -> None:
         """
@@ -463,7 +454,12 @@ class IndProcessor:
                 self.extent.capitalize(),
             ]
             for idx, item in enumerate(tsv_items):
-                if item is None:
+                if (
+                    id(item) == id(self.mb_division)
+                    and "mb" not in self.funding_org.lower()
+                ):
+                    tsv_items[idx] = ""
+                elif item is None:
                     tsv_items[idx] = "-"
                 else:
                     tsv_items[idx] = str(item)
@@ -476,9 +472,7 @@ class IndProcessor:
             with open(tsv_output_path, "a", encoding="utf-8") as file:
                 file.write(tsv_string + "\n")
 
-            console.print(
-                f"[spring_green3]> '{tsv_output_path.name}' updated with new data[/spring_green3]"
-            )
+            logger.info(f"> '{tsv_output_path.name}' updated with new data")
 
     def rename_and_copy_file(self) -> None:
         stem_items: list = [
@@ -499,6 +493,7 @@ class IndProcessor:
             )
         except Exception as e:
             print(f"Error renaming and copying file: {e}")
+        renamed_path.unlink()
 
     def process(self, pdf_path: Path) -> str:
         """
@@ -535,8 +530,6 @@ class IndProcessor:
             self.rename_and_copy_file()
             LogID(self.category).save()
 
-            console.print(
-                "[spring_green3]> PDF processing and data transformation complete.[/spring_green3]"
-            )
-            logger(self)
+            logger.info("> PDF processing and data transformation complete.")
+            logger.info(f"\n{pdf_path.name}\n{self}\n")
             return self
