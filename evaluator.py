@@ -1,4 +1,5 @@
 from typing import Optional
+
 from constants import monetary_matrix, time_off_matrix
 
 
@@ -8,9 +9,17 @@ class AwardEvaluator:
     * value: str - The value of the award (moderate, high, exceptional).
     * extent: str - The extent of the award (limited, extended, general).
     """
+
     value_options: tuple[str, ...] = ("moderate", "high", "exceptional")
     extent_options: tuple[str, ...] = ("limited", "extended", "general")
-    def __init__(self,value: str, extent: str, monetary_amount: int, time_off_amount: int,):
+
+    def __init__(
+        self,
+        value: str,
+        extent: str,
+        monetary_amount: int,
+        time_off_amount: int,
+    ):
 
         self.value = value
         self.extent = extent
@@ -32,8 +41,8 @@ class AwardEvaluator:
             error_messages.append(f"Invalid 'Extent' Selection: '{self.extent}'")
 
         if error_messages:
-            error_messages.insert(0,"Assessment validation failed:")
-            raise ValueError("\n".join(error_messages))
+            error_messages.insert(0, "Assessment validation failed:")
+            raise SyntaxError("\n".join(error_messages))
 
     def calculate_limits(self):
         """
@@ -78,17 +87,16 @@ class AwardEvaluator:
             + f"  • Time-Off:  {self.time_off_amount} hrs".ljust(26)
             + f"({self.time_off_percentage:,.2f}% of {self.time_off_limit} time-off limit)\n\n"
             + f"Total Percentage:\n"
-            + f"  • {self.combined_percentage:,.2f}%".ljust(15)
-            +"Exceeds 100% limit"
+            + f"  • {self.combined_percentage:,.2f}%:".ljust(15)
+            + "Exceeds 100% limit\n\n"
+            + "Please make the appropriate corrections and resubmit for processing. See NAP 332.2 (attached), pages 21 - 23 for more information.\n\n"
+            + "Thank you."
         )
 
     def evaluate(self) -> None:
-        error_message = self.validate_input()
-        if error_message is not None:
-            return f"[red]Validation Error:[/red]\n{error_message}[/red]"
+        self.validate_input()
 
         if self.combined_percentage > 100:
-            error_message = self.construct_error_message()
-            raise ValueError(error_message)
+            raise ValueError(self.construct_error_message())
 
-        return f"[spring_green3]> Award evaluation results: {self.combined_percentage:,.2f}%, within limits.[/spring_green3]"
+        return f"> Award evaluation results: {self.combined_percentage:,.2f}%, within limits."
