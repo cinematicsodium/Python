@@ -1,5 +1,7 @@
 import json
+import shutil
 from collections import Counter
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from time import sleep
@@ -7,50 +9,47 @@ from typing import Optional
 
 import fitz
 import yaml
-from constants import consultant_map, json_output_path, tsv_output_path
+from constants import (archive_path, consultant_map, json_output_path,
+                       tsv_output_path)
 from evaluator import AwardEvaluator
 from formatting import Formatter
 from rich.console import Console
-from utils import LogID, find_mgmt_division, find_organization
+from utils import LogID, find_mgmt_division, find_organization, logger
 
 console = Console()
 
 
+@dataclass
 class IndProcessor:
-    file_path: Path
-
-    def __init__(self):
-        self.log_id: Optional[str] = None
-        self.funding_org: Optional[str] = None
-        self.employee_name: Optional[str] = "employee_name"
-        self.monetary_amount: Optional[str] = None
-        self.time_off_amount: Optional[str] = None
-        self.employee_org: Optional[str] = "organization"
-        self.employee_pay_plan: Optional[str] = "pay_plan_gradestep_1"
-        self.employee_supervisor_name: Optional[str] = "please_print_2"
-        self.employee_supervisor_org: Optional[str] = "org_3"
-        self.nominator_name: Optional[str] = "please_print"
-        self.nominator_org: Optional[str] = "org"
-        self.sas_monetary_amount: Optional[str] = "undefined"
-        self.sas_time_off_amount: Optional[str] = "hours_2"
-        self.ots_monetary_amount: Optional[str] = "on_the_spot_award"
-        self.ots_time_off_amount: Optional[str] = "hours"
-        self.certifier_name: Optional[str] = "special_act_award_funding_string_2"
-        self.certifier_org: Optional[str] = "org_2"
-        self.approver_name: Optional[str] = "please_print_3"
-        self.approver_org: Optional[str] = "org_4"
-        self.administrator_name: Optional[str] = "please_print_4"
-        self.reviewer_name: Optional[str] = "please_print_5"
-        self.funding_string: Optional[str] = "special_act_award_funding_string_1"
-        self.mb_division: Optional[str] = None
-        self.justification: Optional[str] = "extent_of_application"
-        self.value: Optional[str] = None
-        self.extent: Optional[str] = None
-        self.category: Optional[str] = "IND"
-        self.type: Optional[str] = None
-        self.date_received: Optional[str] = None
-        self.log_id = LogID(self.category).get()
-        self.date_received = datetime.now().strftime("%Y-%m-%d")
+    log_id: Optional[str] = None
+    funding_org: Optional[str] = None
+    employee_name: Optional[str] = "employee_name"
+    monetary_amount: Optional[int] = None
+    time_off_amount: Optional[int] = None
+    employee_org: Optional[str] = "organization"
+    employee_pay_plan: Optional[str] = "pay_plan_gradestep_1"
+    employee_supervisor_name: Optional[str] = "please_print_2"
+    employee_supervisor_org: Optional[str] = "org_3"
+    nominator_name: Optional[str] = "please_print"
+    nominator_org: Optional[str] = "org"
+    sas_monetary_amount: Optional[str] = "undefined"
+    sas_time_off_amount: Optional[str] = "hours_2"
+    ots_monetary_amount: Optional[str] = "on_the_spot_award"
+    ots_time_off_amount: Optional[str] = "hours"
+    certifier_name: Optional[str] = "special_act_award_funding_string_2"
+    certifier_org: Optional[str] = "org_2"
+    approver_name: Optional[str] = "please_print_3"
+    approver_org: Optional[str] = "org_4"
+    administrator_name: Optional[str] = "please_print_4"
+    reviewer_name: Optional[str] = "please_print_5"
+    funding_string: Optional[str] = "special_act_award_funding_string_1"
+    mb_division: Optional[str] = None
+    justification: Optional[str] = "extent_of_application"
+    value: Optional[str] = None
+    extent: Optional[str] = None
+    category: Optional[str] = "IND"
+    type: Optional[str] = None
+    date_received = datetime.now().strftime("%Y-%m-%d")
 
     def __str__(self) -> None:
         attributes = {
@@ -67,21 +66,21 @@ class IndProcessor:
             "Extent": self.extent.capitalize(),
             "Category": self.category,
             "Type": self.type,
-            "HRC": self.consultant,
             "Date Received": self.date_received,
+            "HRC": self.consultant,
         }
 
         return "\n".join(f"{key}: {value}" for key, value in attributes.items())
 
-    def extract_data(self, pdf_path: Path) -> dict[str, Optional[str]]:
+    def extract_data(self) -> dict[str, Optional[str]]:
         """
         Extracts the data from the PDF file using PyMuPDF.
         """
         with console.status("[bright_cyan]Extracting data from PDF...[/bright_cyan]"):
-            sleep(0.75)
+            # sleep(0.75)
 
             pdf_data = {}
-            with fitz.open(pdf_path) as doc:
+            with fitz.open(self.pdf_path) as doc:
                 for page in doc:
                     for field in page.widgets():
                         key = Formatter(field.field_name).key()
@@ -100,7 +99,7 @@ class IndProcessor:
         Populates the class attributes with the extracted data.
         """
         with console.status("[bright_cyan]Populating attributes...[/bright_cyan]"):
-            sleep(0.75)
+            # sleep(0.75)
 
             exempt_attr_fields: list[str] = [
                 "funding_org",
@@ -113,12 +112,13 @@ class IndProcessor:
                 "type",
                 "date_received",
                 "log_id",
+                "pdf_path",
             ]
             for field_name, placeholder_value in self.__dict__.items():
                 if field_name in exempt_attr_fields:
                     continue
 
-                field_value = award_data.get(placeholder_value)
+                field_value = award_data.get(placeholder_value, None)
                 setattr(self, field_name, field_value)
 
             value_options: list[str] = [
@@ -141,8 +141,10 @@ class IndProcessor:
         """
         Validates that required fields are populated.
         """
-        with console.status("[bright_cyan]Validating required fields...[/bright_cyan]"):
-            sleep(0.75)
+        with console.status(
+            "[bright_cyan]Validating required fields...[/bright_cyan]"
+        ) as status:
+            # sleep(0.75)
 
             required_fields: list[str] = [
                 "employee_name",
@@ -157,8 +159,31 @@ class IndProcessor:
                 field for field in required_fields if getattr(self, field, None) is None
             ]
             if incomplete_fields:
+                status.stop()
                 incomplete_fields = yaml.safe_dump(incomplete_fields, indent=4)
-                raise ValueError(f"Missing Fields:\n{incomplete_fields}")
+                incomplete_msg: str = f"Missing Fields:\n{incomplete_fields}"
+                console.print(f"[bright_red]{incomplete_msg}[/bright_red]")
+
+            options = {1: "Continue", 9: "Skip"}
+            selection: int
+            while True:
+                try:
+                    console.print(
+                        "[orange1]\n"
+                        "Make a selection:\n"
+                        "1: Continue processing.\n"
+                        "9: Skip this award."
+                        "[/orange1]"
+                    )
+                    selection = int(input("> ").strip())
+                    if selection not in options:
+                        raise ValueError("Selection must be 1 or 9.")
+                    if selection in options:
+                        break
+                except Exception as e:
+                    console.print(f"[bright_red]Invalid selection. {e}[/bright_red]")
+            if selection == 9:
+                raise ValueError(f"Unable to proceed with processing. {incomplete_msg}")
 
             if "es" in self.employee_pay_plan.lower():
                 raise ValueError(
@@ -174,7 +199,7 @@ class IndProcessor:
         Matches the funding organization based on the values of the organization fields.
         """
         with console.status("[bright_cyan]Matching organization...[/bright_cyan]"):
-            sleep(0.75)
+            # sleep(0.75)
 
             org_fields = [
                 "employee_org",
@@ -206,17 +231,10 @@ class IndProcessor:
                 if div
             ]
 
-            self.funding_org = (
-                Counter([find_organization(org) for org in processed_divs]).most_common(
-                    1
-                )[0][0]
-                if processed_divs
-                else None
-            )
             org_counter = Counter(
                 [find_organization(org) for org in processed_divs]
             ).most_common(1)
-            self.funding = org_counter[0][0] if org_counter else None
+            self.funding_org = org_counter[0][0] if org_counter else None
 
             if self.funding_org is None:
                 raise ValueError("Unable to determine funding org.")
@@ -252,7 +270,7 @@ class IndProcessor:
         "Prepares object fields for further processing by applying formatting rules."
         """
         with console.status("[bright_cyan]Formatting fields...[/bright_cyan]"):
-            sleep(0.75)
+            # sleep(0.75)
 
             name_fields = [
                 "employee_name",
@@ -297,7 +315,7 @@ class IndProcessor:
         """
 
         with console.status("[bright_cyan]Categorizing award...[/bright_cyan]"):
-            sleep(0.75)
+            # sleep(0.75)
 
             sas_fields = [
                 "sas_monetary_amount",
@@ -333,7 +351,7 @@ class IndProcessor:
         with console.status(
             "[bright_cyan]Checking award amounts for errors...[/bright_cyan]"
         ) as status:
-            sleep(0.75)
+            # sleep(0.75)
 
             if self.monetary_amount == 0 and self.time_off_amount == 0:
                 raise ValueError("No monetary or time-off amounts found.")
@@ -373,12 +391,57 @@ class IndProcessor:
             ).evaluate()
             console.print(eval_results)
 
+    def save_json(self) -> None:
+        """
+        Saves all award data to a JSON file.
+        """
+        with console.status("[bright_cyan]Saving data to JSON file...[/bright_cyan]"):
+            # sleep(0.75)
+
+            if not json_output_path.exists():
+                json_output_path.write_text(r"[]")
+
+            with open(json_output_path, "r", encoding="utf-8") as file:
+                content: str = file.read().strip()
+                content = r"[]" if not content else content
+
+                json_dict_list: list[dict[str, str | int | None]] = json.loads(content)
+                json_dict_list = [] if not json_dict_list else json_dict_list
+
+            items: dict[str, str, int] = {
+                k: v
+                for k, v in self.__dict__.items()
+                if not any(k.startswith(i) for i in ("sas", "ots"))
+            }
+            items["justification"] = f"{len(items['justification'].split())} words"
+            items["pdf_path"] = self.pdf_path.name
+
+            duplicates: list[dict] = [
+                json_dict_item
+                for json_dict_item in json_dict_list
+                if json_dict_item.get("log_id", None) == self.log_id
+            ]
+            if duplicates:
+                raise ValueError(
+                    f"Duplicate entries found for Log ID {self.log_id}\n"
+                    f"Duplicate count: {len(duplicates)}"
+                )
+
+            json_dict_list.append(items)
+
+            with open(json_output_path, "w", encoding="utf-8") as file:
+                json.dump(json_dict_list, file, indent=4, sort_keys=False)
+
+            console.print(
+                f"[spring_green3]> '{json_output_path.name}' updated with new data[/spring_green3]"
+            )
+
     def save_tsv(self) -> None:
         """
         Saves specified data to a TSV file.
         """
         with console.status("[bright_cyan]Saving data to TSV file...[/bright_cyan]"):
-            sleep(0.75)
+            # sleep(0.75)
             tsv_items: list[str] = [
                 self.log_id,
                 self.date_received,
@@ -417,62 +480,50 @@ class IndProcessor:
                 f"[spring_green3]> '{tsv_output_path.name}' updated with new data[/spring_green3]"
             )
 
-    def save_json(self) -> None:
-        """
-        Saves all data as a dictionary to a JSON file.
-        """
-        with console.status("[bright_cyan]Saving data to JSON file...[/bright_cyan]"):
-            sleep(0.75)
-
-            if not json_output_path.exists():
-                json_output_path.write_text(r"{}")
-
-            with open(json_output_path, "r", encoding="utf-8") as file:
-                dict_list: list[dict] = json.load(file)
-                dict_list = [] if not dict_list else dict_list
-
-            items: dict[str, str, int] = {
-                k: v
-                for k, v in self.__dict__.items()
-                if not any(k.startswith(i) for i in ("sas", "ots"))
-            }
-            items["justification"] = f"{len(items['justification'].split())} words"
-
-            duplicates: list[dict] = [
-                _dict for _dict in dict_list if _dict.get("log_id", None) == self.log_id
-            ]
-            if duplicates:
-                raise ValueError(
-                    f"Duplicate entries found for Log ID {self.log_id}\n"
-                    f"Duplicate count: {len(duplicates)}"
-                )
-
-            dict_list.append(items)
-
-            with open(json_output_path, "w", encoding="utf-8") as file:
-                json.dump(dict_list, file, indent=4, sort_keys=False)
-
-            console.print(
-                f"[spring_green3]> '{json_output_path.name}' updated with new data[/spring_green3]"
+    def rename_and_copy_file(self) -> None:
+        stem_items: list = [
+            self.log_id,
+            self.funding_org,
+            self.employee_name,
+            self.date_received,
+        ]
+        file_stem: str = " _ ".join(str(i) for i in stem_items)
+        new_path: Path = self.pdf_path.with_stem(file_stem)
+        renamed_path: Path = Path(self.pdf_path.rename(new_path))
+        target_path: Path = archive_path / renamed_path.name
+        try:
+            shutil.copy2(renamed_path, target_path)
+        except PermissionError:
+            raise PermissionError(
+                "Permission denied. The file is still open in another application. Please close the file and try again."
             )
+        except Exception as e:
+            print(f"Error renaming and copying file: {e}")
 
     def process(self, pdf_path: Path) -> str:
         """
-        Processes an SAS Award PDF file and saves data to YAML and TSV output files.
+        * Collects data from an SAS Award PDF file for processing
+        * Saves data to YAML and TSV output files.
+        * Renames local file.
+        * Creates a copy of the file in the SAS FY Archive network folder.
         """
 
         with console.status(
             "[bright_cyan]Initializing data extraction...[/bright_cyan]"
         ) as status:
-            sleep(0.75)
+            # sleep(0.75)
 
             if not pdf_path.exists():
                 raise FileNotFoundError(f"File not found: {pdf_path}")
             elif pdf_path.suffix != ".pdf":
                 raise ValueError(f"Invalid file type: {pdf_path.suffix}. Expected .pdf")
+
             status.stop()
 
-            data = self.extract_data(pdf_path)
+            self.pdf_path: Path = pdf_path
+            self.log_id = LogID(self.category).get()
+
+            data = self.extract_data()
             self.populate_attrs(data)
             self.initial_validation()
             self.parse_org_divs()
@@ -481,9 +532,11 @@ class IndProcessor:
             self.validate_amounts()
             self.save_json()
             self.save_tsv()
+            self.rename_and_copy_file()
             LogID(self.category).save()
 
             console.print(
                 "[spring_green3]> PDF processing and data transformation complete.[/spring_green3]"
             )
+            logger(self)
             return self
