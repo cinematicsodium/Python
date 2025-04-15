@@ -1,6 +1,5 @@
 from typing import Optional
 
-import openpyxl
 import yaml
 from constants import (
     Tracker,
@@ -113,33 +112,42 @@ def find_mgmt_division(input_org: str) -> str:
     return None
 
 
-def _get_serial_numbers_from_tracker() -> Optional[tuple[int, int]]:
+def __update_serial_numbers__():
+    import warnings
+    from time import sleep
+
+    import openpyxl
+
+    warnings.filterwarnings("ignore", category=UserWarning, module="openpyxl")
+
     try:
         wb = openpyxl.load_workbook(Tracker.file_path, data_only=True)
         sheet = wb[Tracker.sheet_name]
-        ind_val: int = int(sheet[Tracker.ind_coord].value[-3:])
-        grp_val: int = int(sheet[Tracker.grp_coord].value[-3:])
-        return ind_val, grp_val
-    except:
-        return None
+        xl_ind_val: int = int(sheet[Tracker.ind_coord].value[-3:])
+        xl_grp_val: int = int(sheet[Tracker.grp_coord].value[-3:])
 
-
-def _update_serial_numbers() -> None:
-    if (tracker_serial_numbers := _get_serial_numbers_from_tracker()) is None:
-        return
-    ind_val, grp_val = tracker_serial_numbers
-    try:
         with open(serial_numbers_path, "r", encoding="utf-8") as file:
             data = yaml.safe_load(file)
-        data["IND"] = ind_val if ind_val > data["IND"] else data["IND"]
-        data["GRP"] = grp_val
+            yaml_ind_val = data["IND"]
+            yaml_grp_val = data["GRP"]
+
+        yaml_ind_val = xl_ind_val if xl_ind_val > yaml_ind_val else yaml_ind_val
+        yaml_grp_val = xl_grp_val if xl_grp_val > yaml_grp_val else yaml_grp_val
+        
         with open(serial_numbers_path, "w", encoding="utf-8") as file:
             yaml.safe_dump(data, file, indent=4, sort_keys=False, encoding="utf-8")
+        
+            print(
+                f"\n"
+                "Updated serial_numbers.yaml\n"
+                f"IND: {yaml_ind_val}\n"
+                f"GRP: {yaml_grp_val}\n"
+            )
+    
     except Exception as e:
-        from time import sleep
-
         print(f"Unable to update serial_numbers.yaml. {e}")
-        sleep(3)
+
+    sleep(3)
 
 
-_update_serial_numbers()
+__update_serial_numbers__()
