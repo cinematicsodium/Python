@@ -146,7 +146,8 @@ def __update_serial_numbers__():
     
     except Exception as e:
         print(f"Unable to update serial_numbers.yaml. {e}")
-
+    
+    warnings.resetwarnings()
     sleep(3)
 
 
