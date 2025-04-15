@@ -1,17 +1,8 @@
 from typing import Optional
 
 import yaml
-from constants import (
-    Tracker,
-    active_fiscal_year,
-    division_map,
-    mb_map,
-    serial_numbers_path,
-)
+from constants import active_fiscal_year, division_map, mb_map, serial_numbers_path
 from formatting import Formatter
-from rich.console import Console
-
-console = Console()
 
 
 class LogID:
@@ -117,6 +108,7 @@ def __update_serial_numbers__():
     from time import sleep
 
     import openpyxl
+    from constants import Tracker
 
     warnings.filterwarnings("ignore", category=UserWarning, module="openpyxl")
 
@@ -133,20 +125,20 @@ def __update_serial_numbers__():
 
         yaml_ind_val = xl_ind_val if xl_ind_val > yaml_ind_val else yaml_ind_val
         yaml_grp_val = xl_grp_val if xl_grp_val > yaml_grp_val else yaml_grp_val
-        
+
         with open(serial_numbers_path, "w", encoding="utf-8") as file:
             yaml.safe_dump(data, file, indent=4, sort_keys=False, encoding="utf-8")
-        
+
             print(
                 f"\n"
                 "Updated serial_numbers.yaml\n"
                 f"IND: {yaml_ind_val}\n"
                 f"GRP: {yaml_grp_val}\n"
             )
-    
+
     except Exception as e:
         print(f"Unable to update serial_numbers.yaml. {e}")
-    
+
     warnings.resetwarnings()
     sleep(3)
 
