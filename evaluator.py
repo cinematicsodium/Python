@@ -1,6 +1,6 @@
 from typing import Optional
 
-from constants import monetary_matrix, time_off_matrix
+from constants import EvalManager
 
 
 class AwardEvaluator:
@@ -9,9 +9,6 @@ class AwardEvaluator:
     * value: str - The value of the award (moderate, high, exceptional).
     * extent: str - The extent of the award (limited, extended, general).
     """
-
-    value_options: tuple[str, ...] = ("moderate", "high", "exceptional")
-    extent_options: tuple[str, ...] = ("limited", "extended", "general")
 
     def __init__(
         self,
@@ -35,9 +32,9 @@ class AwardEvaluator:
         Validates the input values and extent.
         """
         error_messages = []
-        if self.value not in self.value_options:
+        if self.value not in EvalManager.value_options:
             error_messages.append(f"Invalid 'Value' Selection: '{self.value}'")
-        if self.extent not in self.extent_options:
+        if self.extent not in EvalManager.extent_options:
             error_messages.append(f"Invalid 'Extent' Selection: '{self.extent}'")
 
         if error_messages:
@@ -49,11 +46,11 @@ class AwardEvaluator:
         Calculates the monetary and time-off limits based on value and extent.
         """
 
-        val_idx: Optional[int] = self.value_options.index(self.value)
-        ext_idx: Optional[int] = self.extent_options.index(self.extent)
+        val_idx: Optional[int] = EvalManager.value_options.index(self.value)
+        ext_idx: Optional[int] = EvalManager.extent_options.index(self.extent)
 
-        self.monetary_limit: int = monetary_matrix[val_idx][ext_idx]
-        self.time_off_limit: int = time_off_matrix[val_idx][ext_idx]
+        self.monetary_limit: int = EvalManager.monetary_matrix[val_idx][ext_idx]
+        self.time_off_limit: int = EvalManager.time_off_matrix[val_idx][ext_idx]
 
     def calculate_percentages(self):
         """
@@ -73,18 +70,20 @@ class AwardEvaluator:
         """
         Constructs an error message if the combined percentage exceeds 100%.
         """
+        value: str = str(self.value).capitalize()
+        extent: str = str(self.extent).capitalize()
         return (
             "Award amounts exceed the limits for the selected value and extent.\n\n"
             f"Selected Criteria:\n"
-            f"  • Value:     {self.value.capitalize()}\n"
-            f"  • Extent:    {self.extent.capitalize()}\n\n"
-            f"Applicable Limits for {self.value.capitalize()} x {self.extent.capitalize()}:\n"
+            f"  • Value:     {value}\n"
+            f"  • Extent:    {extent}\n\n"
+            f"Applicable Limits for {value} x {extent}:\n"
             f"  • Monetary:  ${self.monetary_limit}\n"
-            f"  • Time-Off:  {self.time_off_limit} hrs\n\n"
+            f"  • Time-Off:  {self.time_off_limit} hours\n\n"
             f"Award Amounts:\n"
             + f"  • Monetary:  ${self.monetary_amount}".ljust(26)
             + f"({self.monetary_percentage:,.2f}% of ${self.monetary_limit} monetary limit)\n"
-            + f"  • Time-Off:  {self.time_off_amount} hrs".ljust(26)
+            + f"  • Time-Off:  {self.time_off_amount} hours".ljust(26)
             + f"({self.time_off_percentage:,.2f}% of {self.time_off_limit} time-off limit)\n\n"
             + f"Total Percentage:\n"
             + f"  • {self.combined_percentage:,.2f}%:".ljust(15)
@@ -94,9 +93,7 @@ class AwardEvaluator:
         )
 
     def evaluate(self) -> None:
-        self.validate_input()
-
         if self.combined_percentage > 100:
             raise ValueError(self.construct_error_message())
 
-        return f"> Award evaluation results: {self.combined_percentage:,.2f}%, within limits."
+        return f"Award evaluation results: {self.combined_percentage:,.2f}%, within limits."
