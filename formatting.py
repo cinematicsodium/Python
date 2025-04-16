@@ -123,10 +123,10 @@ class Formatter:
     def __init__(self, text: str):
         if not isinstance(text, str):
             raise TypeError(f"'{text}' must be a string, not {type(text)}")
-        self.text = self.clean(text)
+        self.text = self._clean(text)
 
     @staticmethod
-    def clean(text: str) -> str:
+    def _clean(text: str) -> str:
         """
         Normalizes the text, removes extra spaces, and applies a consistent newline prefix.
         """
@@ -136,8 +136,6 @@ class Formatter:
             .replace("\t", "    ")
             .strip()
         )
-        if "\n" in text:
-            text = "\n".join(f">_ {line}" for line in text.split("\n") if line)
         if " " in text:
             text = " ".join(word for word in text.split(" ") if word)
         return text
@@ -163,8 +161,10 @@ class Formatter:
         """
         Formats the 'justification' content to allow line breaks within a single Excel cell.
         """
-        self.text = self.text.replace('"', "'")
-        return f'"{self.text}"'
+        text = self.text.replace('"', "'")
+        if "\n" in text:
+            text = "\n".join(f"> {line}" for line in text.split("\n") if line.strip())
+        return f'"{text}"'
 
     def numerical(self) -> str:
         """
@@ -187,11 +187,14 @@ class Formatter:
                 f"parsed text: {numeric_string}"
             )
 
-    def org_div(self) -> str:
+    def org_div_match(self) -> str:
         """
         Normalizes the text, removes hyphens, and applies a consistent lowercase.
         """
-        return self.text.replace("-", "").strip().lower()
+        chars: list[str] = ["-", ".", " "]
+        for char in chars:
+            self.text = self.text.replace(char, "")
+        return self.text.lower().strip()
 
     def pay_plan(self) -> str:
         chars = list(self.text)
@@ -200,3 +203,8 @@ class Formatter:
         if chars[1].isalpha() and chars[2].isnumeric():
             chars.insert(2, "-")
         return "".join(chars)
+
+
+if __name__ == "__main__":
+    key = "test_key_name"
+    print(Formatter(key).key())
