@@ -1,6 +1,14 @@
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+
+status: str = "DISABLED"
+
+testing_mode: bool = True
+if testing_mode:
+    status = "ENABLED"
+
+input(f'\n\nTesting mode {status}.\nPress "Enter" to continue.\n\n').strip()
+
 
 active_fiscal_year = 2025
 
@@ -20,31 +28,41 @@ if current_fiscal_year != active_fiscal_year:
 _local_dir: Path
 _network_dir: Path
 
-json_output_path: Path = _local_dir / Path()
-tsv_output_path: Path = _local_dir / Path()
-serial_numbers_path: Path = _local_dir / Path()
-logger_path: Path = _local_dir / Path()
-archive_path: Path = _network_dir / Path()
-archive_path.mkdir(parents=True, exist_ok=True)
+
+class PathManager:
+    archive_path: Path
+    json_output_path: Path
+    logger_path: Path
+    manual_entry_path: Path
+    serial_path: Path
+    tracker_path: Path
+    tsv_output_path: Path
+
+    def __init__(self):
+        paths_list: list[Path] = [
+            self.json_output_path,
+            self.logger_path,
+            self.serial_path,
+            self.tsv_output_path,
+            self.archive_path,
+        ]
+        for path in paths_list:
+            if not path.exists():
+                path.touch(exist_ok=True)
+
+
+class EvalManager:
+    value_options: tuple[str, ...]
+    extent_options: tuple[str, ...]
+    monetary_matrix: tuple[tuple[int, int, int], ...]
+    time_off_matrix: tuple[tuple[int, int, int], ...]
 
 
 class Tracker:
-    file_path: Path = _local_dir / Path()
-    sheet_name: str = "data_entry"
-    ind_coord: str = "C2"
-    grp_coord: str = "C3"
-
-
-monetary_matrix: tuple[tuple[int, int, int], ...] = (
-    (0, 0, 0),
-    (0, 0, 0),
-    (0, 0, 0),
-)
-time_off_matrix: tuple[tuple[int, int, int], ...] = (
-    (0, 0, 0),
-    (0, 0, 0),
-    (0, 0, 0),
-)
+    file_path: Path = PathManager.tracker_path
+    sheet_name: str
+    ind_coord: str
+    grp_coord: str
 
 
 division_map: dict[str, list[str]]
