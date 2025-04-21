@@ -1,14 +1,10 @@
 from datetime import datetime
 from pathlib import Path
 
-status: str = "DISABLED"
-
-testing_mode: bool = True
-if testing_mode:
-    status = "ENABLED"
-
-input(f'\n\nTesting mode {status}.\nPress "Enter" to continue.\n\n').strip()
-
+testing_mode: bool = False
+status: str = "ENABLED" if testing_mode is True else "DISABLED"
+monetary_hold: bool = True
+input(f'\n\nTesting mode {status}.\nMonetary hold: {monetary_hold}\nPress "Enter" to continue.\n\n').strip()
 
 active_fiscal_year = 2025
 
@@ -28,15 +24,18 @@ if current_fiscal_year != active_fiscal_year:
 _local_dir: Path
 _network_dir: Path
 
+class IndFileType:
+    standard: int = 0
+    nonstandard: int = 1
 
 class PathManager:
-    archive_path: Path
-    json_output_path: Path
-    logger_path: Path
-    manual_entry_path: Path
-    serial_path: Path
-    tracker_path: Path
-    tsv_output_path: Path
+    archive_path: Path = _network_dir / ""
+    json_output_path: Path = _local_dir / ""
+    logger_path: Path = _local_dir / ""
+    manual_entry_path: Path = _local_dir / ""
+    serial_path: Path = _local_dir / ""
+    tracker_path: Path = _local_dir / ""
+    tsv_output_path: Path = _local_dir / ""
 
     def __init__(self):
         paths_list: list[Path] = [
@@ -50,6 +49,7 @@ class PathManager:
             if not path.exists():
                 path.touch(exist_ok=True)
 
+pathmanager = PathManager()
 
 class EvalManager:
     value_options: tuple[str, ...]
@@ -60,11 +60,13 @@ class EvalManager:
 
 class Tracker:
     file_path: Path = PathManager.tracker_path
-    sheet_name: str
-    ind_coord: str
-    grp_coord: str
+    sheet_name: str = "data_entry"
+    ind_coord: str = "C2"
+    grp_coord: str = "C3"
 
 
 division_map: dict[str, list[str]]
+
 mb_map: dict[str, list[str]]
+
 consultant_map: dict[str, str]
