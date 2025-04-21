@@ -1,4 +1,5 @@
 import unicodedata
+from typing import Optional
 
 TITLES: list[str] = [
     "dr.",
@@ -45,6 +46,8 @@ class NameFormatter:
 
     def __init__(self, full_name: str):
         self.full_name = full_name
+        if not full_name:
+            return
 
     def name_parts(self) -> list[str] | None:
         """
@@ -54,10 +57,10 @@ class NameFormatter:
         filtered_parts = [
             part
             for part in parts
-            if not any(
+            if part.lower() in NAME_PARTICLES
+            or part.lower() in TITLES
+            or not any(
                 [
-                    part.lower() in NAME_PARTICLES,
-                    part.lower() in TITLES,
                     (part.startswith('"') and part.endswith('"')),
                     (part.startswith("(") and part.endswith(")")),
                     ("." in part and len(part.replace(".", "")) in (1, 3)),
@@ -71,6 +74,8 @@ class NameFormatter:
         """
         Formats the full name as "Last, First".
         """
+        if not self.full_name:
+            return
 
         if any(
             [
@@ -120,10 +125,17 @@ class NameFormatter:
 
 
 class Formatter:
-    def __init__(self, text: str):
-        if not isinstance(text, str):
-            raise TypeError(f"'{text}' must be a string, not {type(text)}")
-        self.text = self._clean(text)
+    def __init__(self, text: Optional[str]):
+        if isinstance(text, str):
+            self.text = self._clean(text)
+        elif text is None:
+            self.text = None
+        else:
+            raise ValueError(
+                f"Unable to format '{text}'.\n"
+                f"Expected Type: [str, None]\n"
+                f"Received Type: {type(text)}"
+            )
 
     @staticmethod
     def _clean(text: str) -> str:
@@ -134,33 +146,32 @@ class Formatter:
             unicodedata.normalize("NFKD", text)
             .replace("\r", "\n")
             .replace("\t", "    ")
-            .strip()
         )
         if " " in text:
             text = " ".join(word for word in text.split(" ") if word)
-        return text
+        return text.strip()
 
     def __str__(self):
-        return self.text
+        return str(self.text)
 
     def key(self) -> str:
-        return self.text.lower().replace(" ", "_")
+        return self.text.lower().replace(" ", "_") if self.text else None
 
     def value(self) -> str:
-        if self.text.strip() == "":
-            return None
-        return self.text
+        return self.text if self.text else None
 
     def name(self) -> str:
         """
         Class to format names as "Last, First".
         """
-        return NameFormatter(self.text).format_last_first()
+        return NameFormatter(self.text).format_last_first() if self.text else None
 
     def justification(self) -> str:
         """
         Formats the 'justification' content to allow line breaks within a single Excel cell.
         """
+        if not self.text:
+            return
         text = self.text.replace('"', "'")
         if "\n" in text:
             text = "\n".join(f"> {line}" for line in text.split("\n") if line.strip())
@@ -170,6 +181,8 @@ class Formatter:
         """
         Formats the text as a numerical value.
         """
+        if not self.text:
+            return
         numeric_string = "".join(
             char for char in self.text if char.isdigit() or char == "."
         )
@@ -187,16 +200,20 @@ class Formatter:
                 f"parsed text: {numeric_string}"
             )
 
-    def org_div_match(self) -> str:
+    def standardized_org_div(self) -> str:
         """
         Normalizes the text, removes hyphens, and applies a consistent lowercase.
         """
+        if not self.text:
+            return
         chars: list[str] = ["-", ".", " "]
         for char in chars:
             self.text = self.text.replace(char, "")
         return self.text.lower().strip()
 
     def pay_plan(self) -> str:
+        if not self.text:
+            return
         chars = list(self.text)
         for idx, char in enumerate(chars):
             chars[idx] = char.upper() if char.isalnum() else "-"
@@ -206,5 +223,5 @@ class Formatter:
 
 
 if __name__ == "__main__":
-    key = "test_key_name"
-    print(Formatter(key).key())
+    val = None
+    print(Formatter(val).key())
