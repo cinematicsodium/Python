@@ -17,18 +17,18 @@ def main():
 
         folder: Path
 
-        for file in folder.iterdir():
-            if file.is_file() and file.suffix == ".pdf":
-                if "GRP" in file.name or "NA-90" in file.name:
+        for pdf_path in folder.iterdir():
+            if pdf_path.is_file() and pdf_path.suffix == ".pdf":
+                if "GRP" in pdf_path.name in pdf_path.name:
                     continue
                 try:
-                    processor = IndProcessor()
-                    processor.run_processing(file)
-                    processed_list.append(file.name)
+                    processor = IndProcessor(pdf_path)
+                    processor.process_pdf_data()
+                    processed_list.append(pdf_path.name)
 
                 except Exception as e:
                     logger.error(e)
-                    failed_list.append({"file": file.name, "error": {str(e)[:100]}})
+                    failed_list.append({"file": pdf_path.name, "error": {str(e)[:100]}})
 
         logger.info(f"\n\nProcessed Files Count: {len(processed_list)}")
         if processed_list:
@@ -38,23 +38,11 @@ def main():
         for failed in failed_list:
             for k, v in failed.items():
                 logger.info(f"- {k}: {str(v)[:100]}...")
-            logger.info()
-        logger.info()
-    except Exception as e:
-        logger.error(e)
-
-
-def test_file():
-    file_path: Path
-    try:
-        logger.info(file_path.name)
-        processor = IndProcessor()
-        processor.run_processing(file_path)
+            print()
 
     except Exception as e:
         logger.error(e)
 
 
 if __name__ == "__main__":
-    # main()
-    test_file()
+    main()
