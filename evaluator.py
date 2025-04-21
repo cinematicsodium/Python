@@ -4,6 +4,12 @@ from constants import EvalManager
 
 
 class AwardEvaluator:
+    """
+    Class for evaluating award criteria.
+    * value: str - The value of the award (moderate, high, exceptional).
+    * extent: str - The extent of the award (limited, extended, general).
+    """
+
     def __init__(
         self,
         value: str,
@@ -27,9 +33,9 @@ class AwardEvaluator:
         """
         error_messages = []
         if self.value not in EvalManager.value_options:
-            error_messages.append(f"Invalid 'Value' Selection: '{self.value}'")
+            error_messages.append(f"Value Selection: '{self.value}'")
         if self.extent not in EvalManager.extent_options:
-            error_messages.append(f"Invalid 'Extent' Selection: '{self.extent}'")
+            error_messages.append(f"Extent Selection: '{self.extent}'")
 
         if error_messages:
             error_messages.insert(0, "Assessment validation failed:")
@@ -82,6 +88,8 @@ class AwardEvaluator:
             + f"Total Percentage:\n"
             + f"  • {self.combined_percentage:,.2f}%:".ljust(15)
             + "Exceeds 100% limit\n\n"
+            + "Please make the appropriate corrections and resubmit for processing. See NAP 332.2 (attached), pages 21 - 23 for more information.\n\n"
+            + "Thank you."
         )
 
     def evaluate(self) -> None:
