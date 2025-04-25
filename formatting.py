@@ -1,3 +1,4 @@
+import re
 import unicodedata
 from typing import Optional
 
@@ -39,6 +40,16 @@ NAME_PARTICLES = [
 ]
 
 
+def is_title(part: str) -> bool:
+    pattern = r"\b[a-zA-Z]{2,4}\.(?:[a-zA-Z])?\.?(?:\s|$)"
+    return re.match(pattern, part) is not None
+
+
+def is_enclosed(part: str) -> bool:
+    pattern = re.compile(r"(['\"])([a-zA-Z]{1,12})\1|(\()([a-zA-Z]{1,32})(\))")
+    return pattern.match(part) is not None
+
+
 class NameFormatter:
     """
     Class to format names as "Last, First".
@@ -57,20 +68,18 @@ class NameFormatter:
         filtered_parts = [
             part
             for part in parts
-            if part.lower() in NAME_PARTICLES
-            or part.lower() in TITLES
-            or not any(
+            if any(
                 [
-                    (part.startswith('"') and part.endswith('"')),
-                    (part.startswith("(") and part.endswith(")")),
-                    ("." in part and len(part.replace(".", "")) in (1, 3)),
-                    len(part) == 1,
+                    part.lower() in NAME_PARTICLES,
+                    not is_title(part),
+                    not is_enclosed(part),
+                    not len(part) == 1,
                 ]
             )
         ]
         return filtered_parts if filtered_parts else None
 
-    def format_last_first(self) -> str:
+    def format_last_first(self) -> Optional[str]:
         """
         Formats the full name as "Last, First".
         """
@@ -126,58 +135,63 @@ class NameFormatter:
 
 class Formatter:
     def __init__(self, text: Optional[str]):
+        self.text = text
         if isinstance(text, str):
             self.text = self._clean(text)
-        elif text is None:
-            self.text = None
-        else:
-            raise ValueError(
-                f"Unable to format '{text}'.\n"
-                f"Expected Type: [str, None]\n"
-                f"Received Type: {type(text)}"
-            )
 
     @staticmethod
-    def _clean(text: str) -> str:
+    def _clean(text: str) -> Optional[str]:
         """
         Normalizes the text, removes extra spaces, and applies a consistent newline prefix.
         """
         text = (
-            unicodedata.normalize("NFKD", text)
+            text.encode("ascii", errors="ignore")
+            .decode("utf-8")
             .replace("\r", "\n")
             .replace("\t", "    ")
         )
-        if " " in text:
-            text = " ".join(word for word in text.split(" ") if word)
+        text = " ".join(word for word in text.split(" ") if word)
         return text.strip()
 
     def __str__(self):
         return str(self.text)
 
-    def key(self) -> str:
-        return self.text.lower().replace(" ", "_") if self.text else None
+    def key(self) -> Optional[str]:
+        if not self.text:
+            return
+        return self.text.lower().replace(" ", "_")
 
-    def value(self) -> str:
-        return self.text if self.text else None
+    def value(self) -> Optional[str]:
+        if not self.text:
+            return
+        return self.text
 
-    def name(self) -> str:
+    def name(self) -> Optional[str]:
         """
         Class to format names as "Last, First".
         """
-        return NameFormatter(self.text).format_last_first() if self.text else None
+        if not self.text:
+            return
+        return NameFormatter(self.text).format_last_first()
 
-    def justification(self) -> str:
+    def justification(self) -> Optional[str]:
         """
         Formats the 'justification' content to allow line breaks within a single Excel cell.
         """
         if not self.text:
             return
         text = self.text.replace('"', "'")
-        if "\n" in text:
-            text = "\n".join(f"> {line}" for line in text.split("\n") if line.strip())
+        lines: list[str] = [line.strip() for line in text.split("\n") if line.strip()]
+        for idx, line in enumerate(lines):
+            match = re.match(r"^[a-zA-Z0-9]{1,3}\.", line)
+            if line[0].isalnum() and not match:
+                lines[idx] = f"> {line}"
+            else:
+                lines[idx] = f"    {line}"
+        text = "\n".join(lines)
         return f'"{text}"'
 
-    def numerical(self) -> str:
+    def numerical(self) -> Optional[str]:
         """
         Formats the text as a numerical value.
         """
@@ -200,28 +214,35 @@ class Formatter:
                 f"parsed text: {numeric_string}"
             )
 
-    def standardized_org_div(self) -> str:
+    def standardized_org_div(self) -> Optional[str]:
         """
         Normalizes the text, removes hyphens, and applies a consistent lowercase.
         """
         if not self.text:
             return
-        chars: list[str] = ["-", ".", " "]
-        for char in chars:
-            self.text = self.text.replace(char, "")
+        self.text = self.text.replace("-", "").replace(" ", "")
         return self.text.lower().strip()
 
-    def pay_plan(self) -> str:
+    def pay_plan(self) -> Optional[str]:
         if not self.text:
             return
-        chars = list(self.text)
-        for idx, char in enumerate(chars):
-            chars[idx] = char.upper() if char.isalnum() else "-"
-        if chars[1].isalpha() and chars[2].isnumeric():
-            chars.insert(2, "-")
-        return "".join(chars)
 
+        def fmtpart(part: str) -> str:
+            part = re.sub(r"^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$", "", part)
+            part = re.sub(
+                r"[^a-zA-Z0-9]+",
+                lambda match: (
+                    "-" if match.start() != 0 and match.end() != len(part) else ""
+                ),
+                part,
+            ).upper()
+            part = re.sub(r"-+", "-", part)
+            return part
 
-if __name__ == "__main__":
-    val = None
-    print(Formatter(val).key())
+        parts = [part.strip() for part in self.text.split()]
+        formatted_parts = []
+        for part in parts:
+            part = fmtpart(part)
+            if part:
+                formatted_parts.append(part)
+        return "_".join(formatted_parts)
