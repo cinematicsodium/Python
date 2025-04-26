@@ -4,7 +4,6 @@ from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from time import sleep
 from typing import Optional
 
 import fitz
@@ -60,30 +59,28 @@ class BaseProcessor:
 
     def handle_source_path(self) -> None:
         """Validates and processes the source path."""
-        if isinstance(self.source_path, Path):
-            logger.path(self.source_path.name)
-        else:
-            logger.path(self.source_path)
         if self.source_path is None:
             return
 
-        if isinstance(self.source_path, str):
+        elif isinstance(self.source_path, str):
             try:
                 self.source_path = Path(self.source_path.replace('"', "").strip())
-            except:
-                raise ValueError(
-                    f"Unable to convert '{self.source_path}' to a Path object."
-                )
-
+                if not self.source_path.exists():
+                    raise ValueError(f"Path '{self.source_path}' does not exist.")
+                if not self.source_path.is_file():
+                    raise ValueError(f"Path '{self.source_path}' is not a file.")
+            except Exception as e:
+                raise ValueError(f"Invalid source path: {e}")
+        
         if not isinstance(self.source_path, Path):
             raise ValueError(
                 "Invalid source path type.\n"
                 "Expected: [Path, str, None]\n"
                 f"Received: {type(self.source_path)}"
             )
-
         if not self.source_path.is_file() or not self.source_path.exists():
             raise ValueError(f"Source path is not a file or does not exist.")
+        logger.path(self.source_path.name)
 
     def extract_pdf_data(self) -> dict[str, Optional[str]]:
         import warnings
@@ -105,7 +102,7 @@ class BaseProcessor:
             raise ValueError("No data extracted from the PDF.")
         logger.info("Extracted data from PDF.")
         warnings.resetwarnings()
-
+        
         return pdf_data
 
 
@@ -115,13 +112,17 @@ class IndProcessor(BaseProcessor):
         super().__post_init__()
 
     def __str__(self):
+        source_path = self.source_path.name if self.source_path else None
+        monetary_amount = f"${self.monetary_amount}" if self.monetary_amount else None
+        time_off_amount = f"{self.time_off_amount} hours" if self.time_off_amount else None
+        justification = f"{len(self.justification.split(' '))} words" if self.justification else None
         attributes: dict[str, str | None] = {
-            "Source": self.source_path.name if self.source_path else None,
+            "Source": source_path,
             "Log ID": self.log_id,
             "Funding Org": self.funding_org,
             "Funding String": self.funding_string,
-            "Monetary Amount": f"${self.monetary_amount}",
-            "Time-Off Amount": f"{self.time_off_amount} hours",
+            "Monetary Amount": monetary_amount,
+            "Time-Off Amount": time_off_amount,
             "Employee Name": self.employee_name,
             "Employee Org": self.employee_org,
             "Employee Pay Plan": self.employee_pay_plan,
@@ -131,7 +132,7 @@ class IndProcessor(BaseProcessor):
             "Nominator Org": self.nominator_org,
             "Value": self.value,
             "Extent": self.extent,
-            "Justification": f"{len(self.justification.split(' '))} words",
+            "Justification": justification,
             "Category": self.category,
             "Type": self.type,
             "Date Received": self.date_received,

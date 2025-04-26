@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from constants import path_manager, testing_mode
+from constants import path_manager
 from rich.console import Console
 
 console = Console()
