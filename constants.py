@@ -1,5 +1,10 @@
 from datetime import datetime
+from pathlib import Path
 
+testing_mode: bool = False
+status: str = "ENABLED" if testing_mode is True else "DISABLED"
+monetary_hold: bool = True
+input(f'\n\nTesting mode {status}.\nMonetary hold: {monetary_hold}\nPress "Enter" to continue.\n\n').strip()
 
 active_fiscal_year = 2025
 
@@ -16,20 +21,52 @@ if current_fiscal_year != active_fiscal_year:
         "Please update the fiscal year in constants.py."
     )
 
+_local_dir: Path
+_network_dir: Path
 
-class Criteria:
-    """
-    Award evaluation criteria.
-    """
+class IndFileType:
+    standard: int = 0
+    nonstandard: int = 1
 
-    value_options: tuple[str, ...] = ("a", "b", "c")
-    extent_options: tuple[str, ...] = ("limited", "general", "exceptional")
+class PathManager:
+    archive_path: Path = _network_dir / ""
+    json_output_path: Path = _local_dir / ""
+    logger_path: Path = _local_dir / ""
+    manual_entry_path: Path = _local_dir / ""
+    serial_path: Path = _local_dir / ""
+    tracker_path: Path = _local_dir / ""
+    tsv_output_path: Path = _local_dir / ""
+
+    def __init__(self):
+        paths_list: list[Path] = [
+            self.json_output_path,
+            self.logger_path,
+            self.serial_path,
+            self.tsv_output_path,
+            self.archive_path,
+        ]
+        for path in paths_list:
+            if not path.exists():
+                path.touch(exist_ok=True)
+
+pathmanager = PathManager()
+
+class EvalManager:
+    value_options: tuple[str, ...]
+    extent_options: tuple[str, ...]
+    monetary_matrix: tuple[tuple[int, int, int], ...]
+    time_off_matrix: tuple[tuple[int, int, int], ...]
 
 
-class LimitMatrix:
-    time_off: tuple[tuple[int, ...], ...] = ((1, 2, 3), (4, 5, 6), (7, 8, 9))
-    monetary: tuple[tuple[int, ...], ...] = (
-        (10, 20, 30),
-        (40, 50, 60),
-        (70, 80, 90),
-    )
+class Tracker:
+    file_path: Path = PathManager.tracker_path
+    sheet_name: str = "data_entry"
+    ind_coord: str = "C2"
+    grp_coord: str = "C3"
+
+
+division_map: dict[str, list[str]]
+
+mb_map: dict[str, list[str]]
+
+consultant_map: dict[str, str]
